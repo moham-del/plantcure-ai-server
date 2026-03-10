@@ -1,5 +1,4 @@
-flask
-flask-cors
+gradio
+tensorflow==2.13.0
 numpy
 pillow
-tensorflow-cpu
