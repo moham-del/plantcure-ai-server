@@ -1,4 +1,6 @@
-gradio
-tensorflow==2.13.0
+flask
+flask-cors
 numpy
 pillow
+gdown
+tensorflow==2.13.0
