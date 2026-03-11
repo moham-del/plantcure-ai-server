@@ -60,28 +60,30 @@ def get_info(class_name):
     }
 
 def is_likely_leaf(img_array):
-    """Check if image looks like a plant leaf using color analysis"""
-    img = img_array[0]  # Remove batch dimension
-    
-    # Convert to check green dominance
+    """Very strict check — only green plant leaves allowed"""
+    img = img_array[0]
     r = img[:,:,0]
     g = img[:,:,1]
     b = img[:,:,2]
-    
-    # Check if image has significant green content (plant leaf indicator)
-    green_dominant = np.mean(g > r) + np.mean(g > b)
-    avg_green = np.mean(g)
-    
-    # Leaves are usually green — if very little green, likely not a leaf
-    # Also check it's not mostly white/gray (paper, sky etc)
+
+    # Green dominance check
+    green_pixels = np.sum((g > r * 1.05) & (g > b * 1.05))
+    total_pixels = img.shape[0] * img.shape[1]
+    green_ratio = green_pixels / total_pixels
+
+    # Must have at least 15% green pixels
+    if green_ratio < 0.15:
+        return False
+
+    # Too bright = white paper, sky, etc
     avg_brightness = np.mean(img)
-    
-    # If very bright (white background) or no green dominance at all
-    if avg_brightness > 0.85:  # Too white/bright
+    if avg_brightness > 0.82:
         return False
-    if green_dominant < 0.3 and avg_green < 0.15:  # No green at all
+
+    # Too dark = night photo, black object
+    if avg_brightness < 0.05:
         return False
-    
+
     return True
 
 # ══════════════════════════════════════════
@@ -125,11 +127,11 @@ def predict():
         predicted_idx = np.argmax(predictions[0])
         confidence = float(predictions[0][predicted_idx]) * 100
 
-        # ── Strict confidence check — must be confident it's a leaf disease ──
-        if confidence < 55:
+        # ── Strict confidence check ──
+        if confidence < 60:
             return jsonify({
                 "error": "not_plant",
-                "message": "இது plant leaf இல்லை! தயவுசெய்து தெளிவான plant leaf photo upload செய்யுங்கள்."
+                "message": "இது plant leaf இல்லை! தயவுசெய்து தெளிவான plant leaf photo மட்டும் upload செய்யுங்கள்."
             }), 400
 
         class_name = CLASS_NAMES[predicted_idx]
