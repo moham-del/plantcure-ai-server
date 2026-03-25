@@ -60,42 +60,38 @@ def get_info(class_name):
     }
 
 def is_likely_leaf(img_array):
-    """Super strict check — only green plant leaves allowed"""
+    """Smart check — accepts real leaf photos, rejects non-plant images"""
     img = img_array[0]
     r = img[:,:,0]
     g = img[:,:,1]
     b = img[:,:,2]
 
     total_pixels = img.shape[0] * img.shape[1]
-
-    # ── Check 1: Green dominance ──
-    # Leaf pixels must have green > red AND green > blue
-    green_pixels = np.sum((g > r * 1.08) & (g > b * 1.08))
-    green_ratio = green_pixels / total_pixels
-    if green_ratio < 0.20:  # Need at least 20% green pixels
-        return False
-
-    # ── Check 2: Average green channel ──
-    avg_green = np.mean(g)
-    if avg_green < 0.18:  # Too little green overall
-        return False
-
-    # ── Check 3: Brightness check ──
     avg_brightness = np.mean(img)
-    if avg_brightness > 0.80:  # Too bright = white/gray background
-        return False
-    if avg_brightness < 0.06:  # Too dark = black object
+
+    # ── Reject: Too dark (black screen, dark objects) ──
+    if avg_brightness < 0.04:
         return False
 
-    # ── Check 4: Color variance (leaves have texture) ──
-    variance = np.var(img)
-    if variance < 0.001:  # Solid color = not a leaf
+    # ── Reject: Pure white / gray (paper, wall, sky) ──
+    if avg_brightness > 0.88:
         return False
 
-    # ── Check 5: Green saturation ──
-    # True leaves: green channel significantly higher than others
-    green_dominance = np.mean(g) - (np.mean(r) + np.mean(b)) / 2
-    if green_dominance < 0.03:
+    # ── Check green presence ──
+    green_pixels = np.sum((g > r * 1.03) & (g > b * 1.03))
+    green_ratio = green_pixels / total_pixels
+
+    # ── Check yellowish-green (diseased/dry leaves) ──
+    yellow_green = np.sum((g > 0.25) & (r > 0.15) & (b < 0.35))
+    yellow_ratio = yellow_green / total_pixels
+
+    # ── Check brownish (diseased leaves) ──
+    brown_pixels = np.sum((r > 0.25) & (g > 0.15) & (b < 0.25) & (r > b))
+    brown_ratio = brown_pixels / total_pixels
+
+    # Accept if enough green OR yellow-green OR brown (all valid leaf colors)
+    total_leaf_color = green_ratio + yellow_ratio * 0.5 + brown_ratio * 0.3
+    if total_leaf_color < 0.12:
         return False
 
     return True
@@ -141,11 +137,11 @@ def predict():
         predicted_idx = np.argmax(predictions[0])
         confidence = float(predictions[0][predicted_idx]) * 100
 
-        # ── Strict confidence check ──
-        if confidence < 65:
+        # ── Confidence check ──
+        if confidence < 45:
             return jsonify({
                 "error": "not_plant",
-                "message": "இது plant leaf இல்லை! Only plant leaf photos accepted."
+                "message": "இது plant leaf இல்லை! Please upload a clear plant leaf photo."
             }), 400
 
         class_name = CLASS_NAMES[predicted_idx]
