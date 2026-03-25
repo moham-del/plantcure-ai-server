@@ -60,28 +60,42 @@ def get_info(class_name):
     }
 
 def is_likely_leaf(img_array):
-    """Very strict check — only green plant leaves allowed"""
+    """Super strict check — only green plant leaves allowed"""
     img = img_array[0]
     r = img[:,:,0]
     g = img[:,:,1]
     b = img[:,:,2]
 
-    # Green dominance check
-    green_pixels = np.sum((g > r * 1.05) & (g > b * 1.05))
     total_pixels = img.shape[0] * img.shape[1]
+
+    # ── Check 1: Green dominance ──
+    # Leaf pixels must have green > red AND green > blue
+    green_pixels = np.sum((g > r * 1.08) & (g > b * 1.08))
     green_ratio = green_pixels / total_pixels
-
-    # Must have at least 15% green pixels
-    if green_ratio < 0.15:
+    if green_ratio < 0.20:  # Need at least 20% green pixels
         return False
 
-    # Too bright = white paper, sky, etc
+    # ── Check 2: Average green channel ──
+    avg_green = np.mean(g)
+    if avg_green < 0.18:  # Too little green overall
+        return False
+
+    # ── Check 3: Brightness check ──
     avg_brightness = np.mean(img)
-    if avg_brightness > 0.82:
+    if avg_brightness > 0.80:  # Too bright = white/gray background
+        return False
+    if avg_brightness < 0.06:  # Too dark = black object
         return False
 
-    # Too dark = night photo, black object
-    if avg_brightness < 0.05:
+    # ── Check 4: Color variance (leaves have texture) ──
+    variance = np.var(img)
+    if variance < 0.001:  # Solid color = not a leaf
+        return False
+
+    # ── Check 5: Green saturation ──
+    # True leaves: green channel significantly higher than others
+    green_dominance = np.mean(g) - (np.mean(r) + np.mean(b)) / 2
+    if green_dominance < 0.03:
         return False
 
     return True
@@ -128,10 +142,10 @@ def predict():
         confidence = float(predictions[0][predicted_idx]) * 100
 
         # ── Strict confidence check ──
-        if confidence < 60:
+        if confidence < 65:
             return jsonify({
                 "error": "not_plant",
-                "message": "இது plant leaf இல்லை! தயவுசெய்து தெளிவான plant leaf photo மட்டும் upload செய்யுங்கள்."
+                "message": "இது plant leaf இல்லை! Only plant leaf photos accepted."
             }), 400
 
         class_name = CLASS_NAMES[predicted_idx]
