@@ -125,24 +125,10 @@ def predict():
         img_array = np.array(img_resized) / 255.0
         img_batch = np.expand_dims(img_array, axis=0)
 
-        # ── Check if it looks like a leaf ──
-        if not is_likely_leaf(img_batch):
-            return jsonify({
-                "error": "not_plant",
-                "message": "இது plant leaf இல்லை! தயவுசெய்து plant leaf photo மட்டும் upload செய்யுங்கள்."
-            }), 400
-
-        # Run AI prediction
+        # ── Run AI — Always analyze any photo ──
         predictions = model.predict(img_batch, verbose=0)
         predicted_idx = np.argmax(predictions[0])
         confidence = float(predictions[0][predicted_idx]) * 100
-
-        # ── Confidence check ──
-        if confidence < 45:
-            return jsonify({
-                "error": "not_plant",
-                "message": "இது plant leaf இல்லை! Please upload a clear plant leaf photo."
-            }), 400
 
         class_name = CLASS_NAMES[predicted_idx]
         info = get_info(class_name)
